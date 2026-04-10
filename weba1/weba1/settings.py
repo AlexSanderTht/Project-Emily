@@ -11,10 +11,18 @@ https://docs.djangoproject.com/en/3.0/ref/settings/
 """
 
 import os
-from celery.schedules import crontab
 from pytz import timezone
 from .password import PassDevelA1Hub, PassDevelIntranet, PassMasterA1Hub, PassMasterIntranet, PassMasterDMPAcesso, PassMasterGLPI
-from kombu import Queue, Exchange
+
+try:
+    from celery.schedules import crontab
+    from kombu import Queue, Exchange
+    CELERY_AVAILABLE = True
+except ImportError:
+    crontab = None
+    Queue = None
+    Exchange = None
+    CELERY_AVAILABLE = False
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -23,15 +31,15 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('A1_SECRET_KEY', 'django-insecure-fallback-key-change-in-production')
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or os.environ.get('A1_SECRET_KEY', 'django-insecure-fallback-key-change-in-production')
 ti_email = 'ti@a1.com.br'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 # flag para ser alterada quando o banco for para a produção
-DEVEL = os.environ['A1_HUB_ENV']
-EMAIL_DEBUG = os.environ['A1_HUB_DEBUG_EMAIL']
-BLOCK_ROBODOC = True if 'S' in str(os.environ['A1_HUB_BLOCK_ROBODOC']).upper() else False
-ROBODOC_MAX_REQUEST = int(os.environ['A1_HUB_ROBODOC_MAX_REQUEST'])
+DEVEL = os.environ.get('DJANGO_ENV') or os.environ.get('A1_HUB_ENV', 'dev')
+EMAIL_DEBUG = os.environ.get('DEBUG_EMAIL') or os.environ.get('A1_HUB_DEBUG_EMAIL', ti_email)
+BLOCK_ROBODOC = str(os.environ.get('BLOCK_ROBODOC') or os.environ.get('A1_HUB_BLOCK_ROBODOC', 'N')).upper() in ('1', 'Y', 'S', 'YES', 'SIM', 'TRUE')
+ROBODOC_MAX_REQUEST = int(os.environ.get('ROBODOC_MAX_REQUEST') or os.environ.get('A1_HUB_ROBODOC_MAX_REQUEST', '10'))
 
 HOST = 'localhost'
 if DEVEL == 'dev' and HOST == 'localhost':
@@ -172,154 +180,160 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/3.0/topics/i18n/
 
-LANGUAGE_CODE = 'pt-br'
+if CELERY_AVAILABLE:
+    CELERY_BROKER_URL = 'redis://localhost:6379/0'
+    CELERY_ACCEPT_CONTENT = ['json']
+    CELERY_TASK_SERIALIZER = 'json'
+    CELERY_RESULT_BACKEND = 'django-db'
+    CELERY_TIMEZONE = timezone('America/Sao_Paulo')
+    CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
-TIME_ZONE = 'America/Sao_Paulo'
+    task_exchange = Exchange('default', type='direct')
+    task_exchange_dwg = Exchange('files_dwg', type='direct')
 
-USE_I18N = True
+    CELERY_TASK_QUEUES = (
+        Queue('default', task_exchange, routing_key='default'),
+        Queue('files_using_dwg', task_exchange_dwg, routing_key='files_dwg'),
+    )
 
-USE_L10N = True
+    CELERY_TASK_DEFAULT_QUEUE = 'default'
+    queue_files_dwg = {'queue': 'files_using_dwg'}
 
-USE_TZ = True
+    CELERY_TASK_ROUTES = {
+        'eletrica.convert_dwgs_in_images_and_register': queue_files_dwg,
+        'eletrica.funcao_dwg_diagram_inter': queue_files_dwg,
+        'eletrica.insert_datas_doc_in_dwgs': queue_files_dwg, # verificar se está em uso!
+        'eletrica.tipicos.percorre_dwg': queue_files_dwg,
+        'eletrica.register_file_block_insert': queue_files_dwg,
+        'eletrica.register_file_block_insert_band_elet': queue_files_dwg,
+        'eletrica.register_file_template_gt': queue_files_dwg,
+        'eletrica.gera_caderno_tipicos': queue_files_dwg, # Não esta sendo usado.
+        'eletrica.rev_tipicos': queue_files_dwg,
+    }
 
-# Evita avisos de chave primária auto-criada (Django 3.2+)
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+    CELERY_ALWAYS_EAGER = False
+    CELERY_ACKS_LATE = True
+    CELERY_TASK_PUBLISH_RETRY = True
+    CELERY_DISABLE_RATE_LIMITS = False
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/3.0/howto/static-files/
+    # CELERY_TIMEZONE = 'UTC'
+    # CELERY_ENABLE_UTC = True
+    CELERY_RESULT_EXPIRES = None  # celery.backend_cleanup por padrão limpa as tarefas todos os dias 4 da manhã
+    # CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers.DatabaseScheduler'  # NÃO USAR
 
-STATIC_URL = '/static/'
-STATIC_ROOT = 'C:/Users/alex.santos/Desktop/ProjetoEmily/EMProject/htdocs/static'
-
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static')
-]
-
-#STATICFILES_DIRS = (os.path.join(BASE_DIR, 'staticfiles'),)
-
-
-MEDIA_URL = '/media_/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-CELERY_BROKER_URL = 'redis://localhost:6379/0'
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_TIMEZONE = timezone('America/Sao_Paulo')
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-
-task_exchange = Exchange('default', type='direct')
-task_exchange_dwg = Exchange('files_dwg', type='direct')
-
-CELERY_TASK_QUEUES = (
-    Queue('default', task_exchange, routing_key='default'),
-    Queue('files_using_dwg', task_exchange_dwg, routing_key='files_dwg'),
-)
-
-CELERY_TASK_DEFAULT_QUEUE = 'default'
-queue_files_dwg = {'queue': 'files_using_dwg'}
-
-CELERY_TASK_ROUTES = {
-    'eletrica.convert_dwgs_in_images_and_register': queue_files_dwg,
-    'eletrica.funcao_dwg_diagram_inter': queue_files_dwg,
-    'eletrica.insert_datas_doc_in_dwgs': queue_files_dwg, # verificar se está em uso!
-    'eletrica.tipicos.percorre_dwg': queue_files_dwg,
-    'eletrica.register_file_block_insert': queue_files_dwg,
-    'eletrica.register_file_block_insert_band_elet': queue_files_dwg,
-    'eletrica.register_file_template_gt': queue_files_dwg,
-    'eletrica.gera_caderno_tipicos': queue_files_dwg, # Não esta sendo usado.
-    'eletrica.rev_tipicos': queue_files_dwg,
-}
-
-CELERY_ALWAYS_EAGER = False
-CELERY_ACKS_LATE = True
-CELERY_TASK_PUBLISH_RETRY = True
-CELERY_DISABLE_RATE_LIMITS = False
-
-# CELERY_TIMEZONE = 'UTC'
-# CELERY_ENABLE_UTC = True
-CELERY_RESULT_EXPIRES = None  # celery.backend_cleanup por padrão limpa as tarefas todos os dias 4 da manhã
-# CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers.DatabaseScheduler'  # NÃO USAR
-
-CELERY_BEAT_SCHEDULE = {
-    'atualiza_layouta1_removendo_usuarios_desativados': {
-        'task': 'geral.atualiza_layouta1_removendo_usuarios_desativados',
-        'schedule': crontab(minute=15, hour=6)
-    },
-    'aniversario_sche': {
-        'task': 'geral.update_table_aniv_schedule',
-        'schedule': crontab(minute=0, hour=3)
-    },
-    'logs_vpn': {
-        'task': 'geral.tasks.busca_api',
-        'schedule': crontab(minute=15, hour=2),
-        'args': (2,),
-    },
-    'atualiza_user_civil': {
-        'task': 'A1Flex.update_users',
-        'schedule': crontab(minute=0, hour=2)
-    },
-    'exec_pdms_pnc': {
-        'task': 'engenharia.exec_pdms_pnc',
-        'schedule': crontab(minute=0, hour=4)
-    },
-    'cg_to_per': {
-        'task': 'a1hub.intranet_to_hub_cg',
-        'schedule': crontab(minute=40, hour=3),
-    },
-    'os_to_so': {
-        'task': 'a1hub.intranet_to_hub_os',
-        'schedule': crontab(minute=30, hour=3),
-    },
-    'test-auto-bar': {
-        'task': 'a1hub.task_test.go_to_sleep',
-        'schedule': crontab(minute=0, hour=1),
-        'args': (5, 2)
-    },
-    'clear_temp': {
-        'task': 'a1hub.task_test.clear_temp',
-        'schedule': crontab(minute=0, hour=0),
-        'args': (30e10, 100)
-    },
-    # 'robodoc-auto-check': {
-    #     'task': 'documentacao.a1pro_a1robodoc.check_files',
-    #     'schedule': crontab(minute='*/20'),
-    #     'args': (('robodoc', 'A1 teste', 'sea'), True),
-    #     'kwargs': {'tipo_item': 30024, 'projeto': 30020},
-    #     'options': {'time_limit': 960, 'expires': 960}
-    # },
-    'backup_dbs': {
-        'task': 'weba1.utils.backup_dbs',
-        'schedule': crontab(minute=0, hour=4),
-        'args': False,
-    },
-    'dash_glpi': {
-        'task': 'a1hub.send_reports_per_unit_to_managers',
-        'schedule': crontab(minute=0, hour=6, day_of_month=1),
-    },
-    'cadastra_tags': {
-        'task': 'eletrica.utils.register_tags_default_in_db_a1pro',
-        'schedule': crontab(minute=0, hour=23),
-    },
-    ####### verificar implementacao rotina comos ##########
-    #'cadastra_tags': {
-    #    'task': 'comos_a1pro.export_comos.py.rotina_exportacao_comos',
-    #    'schedule': crontab(minute=0, hour=5),
-    #},
-    #######################################################
-    #'update-history': {
-    #    'task': 'documentacao.utils.update_history',
-    #    'schedule': crontab(minute=0, hour=19)
-    # },
-    # 'listdoc-weekly-report': {
-    #    'task': 'documentacao.a1pro_a1listdoc.week_report',
-    #    'schedule': crontab(minute=00, hour=7, day_of_week=1),  # Toda segunda-feira às 07h00 da manhã
-    # }
-}
+    CELERY_BEAT_SCHEDULE = {
+        'atualiza_layouta1_removendo_usuarios_desativados': {
+            'task': 'geral.atualiza_layouta1_removendo_usuarios_desativados',
+            'schedule': crontab(minute=15, hour=6)
+        },
+        'aniversario_sche': {
+            'task': 'geral.update_table_aniv_schedule',
+            'schedule': crontab(minute=0, hour=3)
+        },
+        'logs_vpn': {
+            'task': 'geral.tasks.busca_api',
+            'schedule': crontab(minute=15, hour=2),
+            'args': (2,),
+        },
+        'atualiza_user_civil': {
+            'task': 'A1Flex.update_users',
+            'schedule': crontab(minute=0, hour=2)
+        },
+        'exec_pdms_pnc': {
+            'task': 'engenharia.exec_pdms_pnc',
+            'schedule': crontab(minute=0, hour=4)
+        },
+        'cg_to_per': {
+            'task': 'a1hub.intranet_to_hub_cg',
+            'schedule': crontab(minute=40, hour=3),
+        },
+        'os_to_so': {
+            'task': 'a1hub.intranet_to_hub_os',
+            'schedule': crontab(minute=30, hour=3),
+        },
+        'test-auto-bar': {
+            'task': 'a1hub.task_test.go_to_sleep',
+            'schedule': crontab(minute=0, hour=1),
+            'args': (5, 2)
+        },
+        'clear_temp': {
+            'task': 'a1hub.task_test.clear_temp',
+            'schedule': crontab(minute=0, hour=0),
+            'args': ()
+        },
+        # 'update_process': {
+        #    'task': 'a1hub.update_process',
+        #    'schedule': crontab(minute='*/20'),
+        #
+        # },
+        'gera_flexible_abertura': {
+            'task': 'flexibilidade.gerar_arq_xls_mensal',
+            'schedule': crontab(minute=0, hour=4),
+            # 'schedule': crontab(minute=0, hour=18),
+        },
+        'gera_flexible_retorno': {
+            'task': 'flexibilidade.gerar_arq_xls_retorno',
+            'schedule': crontab(minute=0, hour=6, day_of_month=1),
+        },
+        'gera_planilha_material_elet': {
+            'task': 'energia.gerar_planilha_material_elet',
+            'schedule': crontab(minute=0, hour=23),
+        },
+        # 'bt_time_equipe': {
+        #    'task': 'bt_automatizado.teamos.all_time_equipe',
+        #    'schedule': crontab(minute=0, hour=5),
+        #
+        # },
+        # 'bt_avaliacao_per': {
+        #    'task': 'bt_automatizado.va.avaliacao_per',
+        #    'schedule': crontab(minute=0, hour=19)
+        # },
+        # 'bt_avaliacao_geral': {
+        #    'task': 'bt_automatizado.va.avaliacao_geral',
+        #    'schedule': crontab(minute=00, hour=7, day_of_week=1),  # Toda segunda-feira às 07h00 da manhã
+        # },
+        'backup_dbs': {
+            'task': 'weba1.utils.backup_dbs',
+            'schedule': crontab(minute=0, hour=4),
+            'args': False,
+        },
+        'dash_glpi': {
+            'task': 'a1hub.send_reports_per_unit_to_managers',
+            'schedule': crontab(minute=0, hour=6, day_of_month=1),
+        },
+        'cadastra_tags': {
+            'task': 'eletrica.utils.register_tags_default_in_db_a1pro',
+            'schedule': crontab(minute=0, hour=23),
+        },
+        ####### verificar implementacao rotina comos ##########
+        #'cadastra_tags': {
+        #    'task': 'comos_a1pro.export_comos.py.rotina_exportacao_comos',
+        #    'schedule': crontab(minute=0, hour=5),
+        #},
+        #######################################################
+        #'update-history': {
+        #    'task': 'documentacao.utils.update_history',
+        #    'schedule': crontab(minute=0, hour=19)
+        # },
+        # 'listdoc-weekly-report': {
+        #    'task': 'documentacao.a1pro_a1listdoc.week_report',
+        #    'schedule': crontab(minute=00, hour=7, day_of_week=1),  # Toda segunda-feira às 07h00 da manhã
+        # }
+    }
 
 DATABASE_ROUTERS = []
 
 CORS_ORIGIN_ALLOW_ALL = True  # configuração cors para aceitar requisições REST
 CORS_ALLOW_CREDENTIALS = True
+
+STATIC_URL = '/static/'
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static')
+]
+
+MEDIA_URL = '/media_/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Ensure logs directory exists
 LOGS_DIR = os.path.join(BASE_DIR, 'logs')
@@ -329,12 +343,6 @@ LOGGING = {
     'version': 1,
     # other dictConfig keys here...
     'handlers': {
-        'graypy': {
-            'level': 'WARNING',
-            'class': 'graypy.GELFTCPHandler',
-            'host': 'deimos.a1.ind.br',
-            'port': 514,
-        },
         'file': {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
@@ -348,7 +356,7 @@ LOGGING = {
     },
     'loggers': {
         'a1pro': {
-            'handlers': ['graypy'],
+            'handlers': ['file'],
             'level': 'ERROR',
             'propagate': True,
         },

@@ -5,5 +5,7 @@ class Weba1Config(AppConfig):
     verbose_name = 'Web A1'
 
     def ready(self):
-        # Importa o arquivo que acabamos de criar
-        import weba1.celery_utils
+        try:
+            import weba1.celery_utils
+        except ImportError:
+            pass
