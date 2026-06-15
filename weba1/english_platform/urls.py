@@ -7,6 +7,7 @@ from .views import (
     StudentLoginView,
     StudentLogoutView,
     StudentRegisterView,
+    send_contact_email,
 )
 
 app_name = 'english_platform'
@@ -18,4 +19,5 @@ urlpatterns = [
     path('sair/', StudentLogoutView.as_view(), name='logout'),
     path('painel/', DashboardView.as_view(), name='dashboard'),
     path('agendar/', BookingCreateView.as_view(), name='book_lesson'),
+    path('contato/', send_contact_email.as_view(), name='contact_lead'),
 ]

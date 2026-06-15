@@ -6,11 +6,36 @@ from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views import View
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.mail import send_mail
+from django.conf import settings
 
 from .forms import ContactLeadForm, LessonBookingForm, StudentLoginForm, StudentRegisterForm
 from .models import LessonBooking
 
 
+class send_contact_email(View):
+    def post(self, request):
+        name = request.POST.get('name', '').strip()
+        email = request.POST.get('email', '').strip()
+        message = request.POST.get('message', '').strip()
+
+        if not (name and email and message):
+            messages.error(request, 'Por favor, preencha nome, email e mensagem.')
+            return redirect('english_platform:landing')
+
+        subject = f'Novo contato de {name}'
+        body = f'Nome: {name}\nEmail: {email}\nMensagem:\n{message}'
+
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'from@example.com')
+        recipient = getattr(settings, 'EMAIL_DEBUG', email)
+
+        try:
+            send_mail(subject, body, from_email, [recipient])
+            messages.success(request, 'Email enviado com sucesso!')
+        except Exception:
+            messages.error(request, 'Falha ao enviar o email. Tente novamente mais tarde.')
+
+        return redirect('english_platform:landing')
 class EnglishLandingView(View):
     template_name = 'english_platform/landing.html'
 

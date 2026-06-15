@@ -6,7 +6,7 @@
 <section class="hero">
     <div class="hero-copy">
         <p class="eyebrow">Aulas de ingles com Emily</p>
-        <h1>Do "I am shy" para conversa fluida em situacoes reais.</h1>
+        <h1>Do "I am shy" para conversa fluida em situações reais.</h1>
         <p class="lead">
             Uma vitrine completa para conhecer a professora Emily, sua metodologia e os formatos de aula.
             Aqui voce encontra trilha personalizada, foco em speaking e acompanhamento pratico.
@@ -37,11 +37,11 @@
 <section id="metodo" class="cards-grid">
     <article class="info-card">
         <h3>Metodo Speak First</h3>
-        <p>Voce fala desde a primeira aula com roteiros guiados e correcao leve em tempo real.</p>
+        <p>Voce fala desde a primeira aula com roteiros guiados e correção leve em tempo real.</p>
     </article>
     <article class="info-card">
         <h3>Rotina de 20 minutos</h3>
-        <p>Microtarefas de listening, shadowing e vocabulario para evoluir mesmo em dias corridos.</p>
+        <p>Microtarefas de listening, shadowing e vocabulário para evoluir mesmo em dias corridos.</p>
     </article>
     <article class="info-card">
         <h3>Progresso mensuravel</h3>
@@ -62,7 +62,7 @@
     </article>
     <article class="showcase-card">
         <h3>Grupo premium</h3>
-        <p>Turmas pequenas com tema semanal e simulacoes de contexto real.</p>
+        <p>Turmas pequenas com tema semanal e simulações de contexto real.</p>
         <span>Ideal para: manter constancia com investimento acessivel</span>
     </article>
 </section>
@@ -72,7 +72,7 @@
         <h2>Agende sua aula diagnostico gratuita</h2>
         <p>Preencha o formulario e a Emily retorna com proposta de trilha e sugestao de horario.</p>
     </div>
-    <form method="post" class="form-grid">
+    <form method="post" action="{% url 'english_platform:contact_lead' %}" class="form-grid">
         {% csrf_token %}
         <label>Nome
             {{ lead_form.name }}

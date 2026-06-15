@@ -32,7 +32,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY') or os.environ.get('A1_SECRET_KEY', 'django-insecure-fallback-key-change-in-production')
-ti_email = 'ti@a1.com.br'
+ti_email = 'alexsperini@gmail.com'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 # flag para ser alterada quando o banco for para a produção
@@ -113,8 +113,21 @@ CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'weba1.urls'
 
-# Em settings.py para ambiente de desenvolvimento
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+# Email configuration
+# Default to console backend in development; can be overridden by env vars for SMTP
+EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')
+
+# Default sender and debug recipient (can be overridden via env vars)
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', 'alexsperini@gmail.com')
+EMAIL_DEBUG = os.environ.get('DEBUG_EMAIL') or os.environ.get('A1_HUB_DEBUG_EMAIL', ti_email)
+
+# SMTP settings (use environment variables in production)
+EMAIL_HOST = os.environ.get('EMAIL_HOST')  # e.g., 'smtp.gmail.com'
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587)) if os.environ.get('EMAIL_HOST') else None
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD')
+EMAIL_USE_TLS = str(os.environ.get('EMAIL_USE_TLS', 'True')).lower() in ('1', 'y', 'yes', 'true')
+EMAIL_USE_SSL = str(os.environ.get('EMAIL_USE_SSL', 'False')).lower() in ('1', 'y', 'yes', 'true')
 
 TEMPLATES = [
     {
