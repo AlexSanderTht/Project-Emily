@@ -1,0 +1,65 @@
+PASSO A PASSO - ENVIO DE EMAIL NO PROJETO
+
+1) Correcao da view send_contact_email
+Arquivo: Project-Emily/weba1/english_platform/views.py
+- A view foi corrigida para herdar de View.
+- Foi implementado metodo POST para receber name, email e message.
+- Foi adicionada validacao de campos obrigatorios.
+- Foi adicionado envio com send_mail().
+- O destinatario usa settings.EMAIL_DEBUG.
+- Em caso de erro, retorna mensagem amigavel ao usuario.
+
+2) Ajuste do formulario na landing
+Arquivo: Project-Emily/weba1/english_platform/templates/english_platform/landing.html
+- O form passou a usar action para a rota correta:
+  english_platform:contact_lead
+- Com isso, o POST vai para /english/contato/.
+
+3) Configuracao de email no settings
+Arquivo: Project-Emily/weba1/weba1/settings.py
+- Foi adicionada configuracao por variaveis de ambiente:
+  EMAIL_BACKEND
+  EMAIL_HOST
+  EMAIL_PORT
+  EMAIL_HOST_USER
+  EMAIL_HOST_PASSWORD
+  EMAIL_USE_TLS
+  EMAIL_USE_SSL
+  DEFAULT_FROM_EMAIL
+  DEBUG_EMAIL
+- O padrao continua console backend quando variavel nao estiver definida.
+
+4) Rotas verificadas
+Arquivo: Project-Emily/weba1/weba1/urls.py
+- Inclui english_platform em /english/.
+Arquivo: Project-Emily/weba1/english_platform/urls.py
+- Endpoint de contato confirmado:
+  path('contato/', send_contact_email.as_view(), name='contact_lead')
+
+5) Variaveis de ambiente configuradas no Windows
+Comandos usados:
+setx EMAIL_BACKEND "django.core.mail.backends.smtp.EmailBackend"
+setx EMAIL_HOST "smtp.gmail.com"
+setx EMAIL_PORT "587"
+setx EMAIL_HOST_USER "alexsperinisantos@gmail.com"
+setx EMAIL_HOST_PASSWORD "<APP_PASSWORD>"
+setx EMAIL_USE_TLS "True"
+setx DEFAULT_FROM_EMAIL "alexsperinisantos@gmail.com"
+setx DEBUG_EMAIL "lutorperini@gmail.com"
+
+6) Testes executados
+- Teste com backend console: OK (email gerado com conteudo correto).
+- Teste SMTP direto com App Password: OK (send result = 1).
+- Teste POST no endpoint /english/contato/: OK (status 302 com redirect para /english/).
+- Teste com CSRF simulando navegador: OK.
+
+7) Observacoes importantes
+- Se alterar variaveis com setx, feche e abra o VS Code/terminal para recarregar ambiente.
+- Em Gmail, use App Password (nao usar senha principal da conta).
+- O destinatario atual dos contatos esta em DEBUG_EMAIL.
+
+8) Como validar manualmente
+- Rodar servidor Django.
+- Acessar: http://localhost:8000/english/
+- Preencher e enviar formulario de contato.
+- Conferir recebimento no email configurado em DEBUG_EMAIL.
